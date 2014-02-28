@@ -1,6 +1,8 @@
 #ifndef _FASTTALK_H_
 #define _FASTTALK_H_
 
+#define LINE_MAX_LENGTH 250
+
 typedef enum _FEEDBACK_T_
 {
 	FT_UNKNOWN = 		0,

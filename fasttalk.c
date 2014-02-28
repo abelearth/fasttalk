@@ -38,9 +38,19 @@ char * command_table[] = {
 };
 
 
-FEEDBACK_T parse_line(char* line)
+FEEDBACK_T parse_line(char* line, unsigned char len)
 {
 	FEEDBACK_T feed = 0;
+	
+	//throw 0 prefix line.
+	while(*line == 0 && len > 0){
+		line++;
+		len--;
+	}
+
+	if(len == 0){
+		return FT_UNKNOWN;
+	}
 
 	if(strstr(line, feedback_table[FT_WELCOME]) != NULL){
 		feed = FT_WELCOME;
@@ -52,7 +62,7 @@ FEEDBACK_T parse_line(char* line)
 		feed = FT_MMC_WRITE_SUCCESS;
 	} else if(strstr(line, feedback_table[FT_MMC_WRITE_FAIL]) != NULL){
 		feed = FT_MMC_WRITE_FAIL;
-	} else if(strcmp(line, feedback_table[FT_SHELL_PROMPT]) == 0){
+	}else if(strcmp(line, feedback_table[FT_SHELL_PROMPT]) == 0){
 		feed = FT_SHELL_PROMPT;
 	}else{
 		feed = FT_UNKNOWN;
@@ -64,61 +74,67 @@ FEEDBACK_T parse_line(char* line)
 
 unsigned int parse_buffer(char* buf, unsigned char len, unsigned int* out)
 {
-	char line[255];
 	unsigned char i = 0;
+	unsigned char start = 0;
+	unsigned char end = 0;
 	
-	unsigned int feed = 0;
-	unsigned int ret = 0;
-	char* p = buf;
+	unsigned int feeds = 0;
+	unsigned int parsed = 0;
 
 	while (i < len){
 		if(buf[i] == '\n'){
+			end = i;
 			buf[i] = 0;
-			feed |= (1 << parse_line(p));
-			p = buf + i + 1;
+			if((end - start) > 0){
+				feeds |= (1 << parse_line(buf + start, end - start));
+			}
+			start = i + 1;
 		}
 		i++;
 	}
 
-	if(p == buf + len){
-		//buffer end at \n
-		ret = len;
-	}else if (( (p + 10) == buf + len) && (strcmp(p, feedback_table[FT_SHELL_PROMPT]) == 0)){
-		//shell prompt
-		feed |= (1 << FT_SHELL_PROMPT);
-		ret = len;
-	}else{
-		//unfinished line in buffer.
-		ret = p - buf;
-	}
+	parsed = end+1;
 
-	*out = feed;
-
-	if(ret == 0){
-		if(len == 255){
-			printf("Warning: no line break in whole receive buffer!\n");
-			printf("Warning: Throw away!\n");
-			ret = len;
+	if (strlen(feedback_table[FT_SHELL_PROMPT]) == (len - parsed)){
+		if(strcmp(buf + parsed, feedback_table[FT_SHELL_PROMPT]) == 0){
+			//shell prompt
+			feeds |= (1 << FT_SHELL_PROMPT);
+			parsed = len; 
 		}
 	}
 
-	return ret;
+	*out = feeds;
+
+	if(parsed == 0){
+		if(len == LINE_MAX_LENGTH){
+			printf("Warning: no line break in whole receive buffer!\n");
+			printf("Warning: Throw away!\n");
+			parsed = len;
+		}
+	}
+
+	return parsed;
 }
 
 int fasttalk(int fd, int out, FASTTALK_STEP step, FASTTALK_STEP *new_step ) 
 {
+	*new_step = step;
+
 	if((1<<FT_WELCOME) & out){
 		if(step == STEP_BOOT){
 			step = STEP_SHELL_START;
 			write(fd, command_table[CT_CTRL_C], strlen(command_table[CT_CTRL_C]));
 		}		
 	}
+
 	if((1<<FT_TFTP_FAIL) & out){
 		return -1;
 	}
+
 	if((1<<FT_MMC_WRITE_FAIL) & out){
 		return -1;
 	}
+
 	if((1<<FT_TFTP_SUCCESS) & out){
 		if(step == STEP_TFTP_PA){
 			step = STEP_WRITE_PA_0;
@@ -128,6 +144,7 @@ int fasttalk(int fd, int out, FASTTALK_STEP step, FASTTALK_STEP *new_step )
 			step = STEP_WRITE_PC_0;
 		}
 	}
+
 	if((1<<FT_MMC_WRITE_SUCCESS) & out){
 		if(step == STEP_WRITE_PA_0){
 			step = STEP_WRITE_PA_1;
@@ -169,13 +186,13 @@ int fasttalk(int fd, int out, FASTTALK_STEP step, FASTTALK_STEP *new_step )
 				write(fd, command_table[CT_WRITE_PA_0], strlen(command_table[CT_WRITE_PA_0]));
 				break;
 			case STEP_WRITE_PA_1:
-				write(fd, command_table[CT_WRITE_PA_0], strlen(command_table[CT_WRITE_PA_1]));
+				write(fd, command_table[CT_WRITE_PA_1], strlen(command_table[CT_WRITE_PA_1]));
 				break;
 			case STEP_WRITE_PA_2:
-				write(fd, command_table[CT_WRITE_PA_0], strlen(command_table[CT_WRITE_PA_2]));
+				write(fd, command_table[CT_WRITE_PA_2], strlen(command_table[CT_WRITE_PA_2]));
 				break;
 			case STEP_WRITE_PA_3:
-				write(fd, command_table[CT_WRITE_PA_0], strlen(command_table[CT_WRITE_PA_3]));
+				write(fd, command_table[CT_WRITE_PA_3], strlen(command_table[CT_WRITE_PA_3]));
 				break;
 			case STEP_TFTP_PB:
 				write(fd, command_table[CT_TFTP_PB], strlen(command_table[CT_TFTP_PB]));
@@ -184,13 +201,13 @@ int fasttalk(int fd, int out, FASTTALK_STEP step, FASTTALK_STEP *new_step )
 				write(fd, command_table[CT_WRITE_PB_0], strlen(command_table[CT_WRITE_PB_0]));
 				break;
 			case STEP_WRITE_PB_1:
-				write(fd, command_table[CT_WRITE_PB_0], strlen(command_table[CT_WRITE_PB_1]));
+				write(fd, command_table[CT_WRITE_PB_1], strlen(command_table[CT_WRITE_PB_1]));
 				break;
 			case STEP_WRITE_PB_2:
-				write(fd, command_table[CT_WRITE_PB_0], strlen(command_table[CT_WRITE_PB_2]));
+				write(fd, command_table[CT_WRITE_PB_2], strlen(command_table[CT_WRITE_PB_2]));
 				break;
 			case STEP_WRITE_PB_3:
-				write(fd, command_table[CT_WRITE_PB_0], strlen(command_table[CT_WRITE_PB_3]));
+				write(fd, command_table[CT_WRITE_PB_3], strlen(command_table[CT_WRITE_PB_3]));
 				break;
 			case STEP_TFTP_PC:
 				write(fd, command_table[CT_TFTP_PC], strlen(command_table[CT_TFTP_PC]));
@@ -199,13 +216,13 @@ int fasttalk(int fd, int out, FASTTALK_STEP step, FASTTALK_STEP *new_step )
 				write(fd, command_table[CT_WRITE_PC_0], strlen(command_table[CT_WRITE_PC_0]));
 				break;
 			case STEP_WRITE_PC_1:
-				write(fd, command_table[CT_WRITE_PC_0], strlen(command_table[CT_WRITE_PC_1]));
+				write(fd, command_table[CT_WRITE_PC_1], strlen(command_table[CT_WRITE_PC_1]));
 				break;
 			case STEP_WRITE_PC_2:
-				write(fd, command_table[CT_WRITE_PC_0], strlen(command_table[CT_WRITE_PC_2]));
+				write(fd, command_table[CT_WRITE_PC_2], strlen(command_table[CT_WRITE_PC_2]));
 				break;
 			case STEP_WRITE_PC_3:
-				write(fd, command_table[CT_WRITE_PC_0], strlen(command_table[CT_WRITE_PC_3]));
+				write(fd, command_table[CT_WRITE_PC_3], strlen(command_table[CT_WRITE_PC_3]));
 				break;
 			case STEP_RESET:
 				write(fd, command_table[CT_RESET], strlen(command_table[CT_RESET]));

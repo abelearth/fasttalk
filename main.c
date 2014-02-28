@@ -30,9 +30,11 @@ int main(int argc, char **argv)
 	int fd,c, res;
 	struct termios oldtio,newtio;
 	char buf[255];
-	unsigned int out;
+	unsigned int feeds;
+	unsigned char i;
 	unsigned char parsed;
 	unsigned char left;
+	unsigned char data_len;
 	FASTTALK_STEP step, new_step;
 	int fret;
 	
@@ -60,7 +62,7 @@ int main(int argc, char **argv)
         newtio.c_lflag = 0;
          
         newtio.c_cc[VTIME]    = 10;   /* inter-character timer unused */
-        newtio.c_cc[VMIN]     = 255;   /* blocking read until 5 chars received */
+        newtio.c_cc[VMIN]     = LINE_MAX_LENGTH;   /* blocking read until 5 chars received */
         
         tcflush(fd, TCIFLUSH);
         tcsetattr(fd,TCSANOW,&newtio);
@@ -70,7 +72,6 @@ int main(int argc, char **argv)
 	   In this example, inputting a 'z' at the beginning of a line will 
 	   exit the program.
 	 */
-	parsed = 0;
 	left = 0;
 	step = STEP_BOOT;
 	while (STOP==FALSE) {     /* loop until we have a terminating condition */
@@ -79,23 +80,36 @@ int main(int argc, char **argv)
 		   of characters read is smaller than the number of chars available,
 		   subsequent reads will return the remaining chars. res will be set
 		   to the actual number of characters actually read */
-		res = read(fd, buf + left, 255 - left); 
+		res = read(fd, buf + left, LINE_MAX_LENGTH - left); 
 		if(res > 0){
-			buf[res]=0;             /* set end of string, so we can printf */
+			data_len = left + res;
+			buf[data_len]=0;             /* set end of string, so we can printf */
+			//only print new received chars.
 			printf("%s", buf+left);
-			parsed = parse_buffer(buf, res, &out);
-			left = res - parsed;
-			memcpy(buf, buf + parsed, left);
+			//printf("\n: all = %d, old = %d, new=%d\n", data_len, left, res);
+			parsed = parse_buffer(buf, data_len, &feeds);
+			//printf(":parsed=%d, left=%d\n", parsed, data_len - parsed);
 
-			fret = fasttalk(fd, out, step, &new_step);
-			if(fret < 0) {
-				printf("emmc burning is break!\n");
-				goto LOCAL_EXIT;
-			}else if (fret > 0){
-				printf("Finish emmc burning successfully!\n");
-				goto LOCAL_EXIT;
-			}else{
+			//prepare next time read.
+			left = data_len - parsed;
+			if(left > 0){
+				for(i = 0; i < left; i++){
+					buf[i] = buf[parsed + i];
+				}
+			}
+
+			if(feeds != 0 && feeds != (1 << FT_UNKNOWN)){
+				fret = fasttalk(fd, feeds, step, &new_step);
 				step = new_step;
+				if(fret < 0) {
+					printf("\n\nemmc burning is break!\n");
+					goto LOCAL_EXIT;
+				}else if (fret > 0){
+					printf("\n\nFinish emmc burning successfully!\n");
+					goto LOCAL_EXIT;
+				}else{
+					//printf("\nnew_step=%d\n", new_step);
+				}
 			}
 		}
 	}
