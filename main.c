@@ -27,7 +27,7 @@ void print_usage(void)
 
 int main(int argc, char **argv)
 {
-	int fd,c, res;
+	int fd, c, res;
 	struct termios oldtio,newtio;
 	char buf[255];
 	unsigned int feeds;
@@ -35,7 +35,6 @@ int main(int argc, char **argv)
 	unsigned char parsed;
 	unsigned char left;
 	unsigned char data_len;
-	FASTTALK_STEP step, new_step;
 	int fret;
 	
 	if(argc != 2){
@@ -73,7 +72,6 @@ int main(int argc, char **argv)
 	   exit the program.
 	 */
 	left = 0;
-	step = STEP_BOOT;
 	while (STOP==FALSE) {     /* loop until we have a terminating condition */
 		/* read blocks program execution until a line terminating character is 
 		   input, even if more than 255 chars are input. If the number
@@ -99,8 +97,7 @@ int main(int argc, char **argv)
 			}
 
 			if(feeds != 0 && feeds != (1 << FT_UNKNOWN)){
-				fret = fasttalk(fd, feeds, step, &new_step);
-				step = new_step;
+				fret = fasttalk(fd, feeds);
 				if(fret < 0) {
 					printf("\n\nemmc burning is break!\n");
 					goto LOCAL_EXIT;

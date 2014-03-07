@@ -14,50 +14,28 @@ typedef enum _FEEDBACK_T_
 	FT_MMC_WRITE_FAIL = 	6,
 }FEEDBACK_T;
 
+
 typedef enum _COMMAND_T_
 {
 	CT_CTRL_C = 0,
-	CT_TFTP_PA,
-	CT_WRITE_PA_0,
-	CT_WRITE_PA_1,
-	CT_WRITE_PA_2,
-	CT_WRITE_PA_3,
-	CT_TFTP_PB,
-	CT_WRITE_PB_0,
-	CT_WRITE_PB_1,
-	CT_WRITE_PB_2,
-	CT_WRITE_PB_3,
-	CT_TFTP_PC,
-	CT_WRITE_PC_0,
-	CT_WRITE_PC_1,
-	CT_WRITE_PC_2,
-	CT_WRITE_PC_3,
+	CT_MEM_SET,
+	CT_TFTP,
+	CT_MMC_WRITE,
 	CT_RESET,
 }COMMAND_T;
 
 typedef enum {
 	STEP_BOOT,
 	STEP_SHELL_START,
-	STEP_TFTP_PA,
-	STEP_WRITE_PA_0,
-	STEP_WRITE_PA_1,
-	STEP_WRITE_PA_2,
-	STEP_WRITE_PA_3,
-	STEP_TFTP_PB,
-	STEP_WRITE_PB_0,
-	STEP_WRITE_PB_1,
-	STEP_WRITE_PB_2,
-	STEP_WRITE_PB_3,
-	STEP_TFTP_PC,
-	STEP_WRITE_PC_0,
-	STEP_WRITE_PC_1,
-	STEP_WRITE_PC_2,
-	STEP_WRITE_PC_3,
+	STEP_DOWN_BURN,
+	STEP_TFTP,
+	STEP_MMC_WRITE,
+	STEP_STUFF_MW,
+	STEP_STUFF_MMC_WRITE,
 	STEP_RESET
 }FASTTALK_STEP;
 
-
-int fasttalk(int fd, int out, FASTTALK_STEP step, FASTTALK_STEP *new_step );
+int fasttalk(int fd, int out);
 unsigned int parse_buffer(char* buf, unsigned char len, unsigned int* out);
 
 #endif
